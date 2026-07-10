@@ -8,6 +8,7 @@
 !/LICENSE
 !/NOTICE
 !/.gitignore
+!/examples/
 
 # Vendored OpenDDE: track only its code, not weights/venv/examples/docs/assets
 !/OpenDDE/

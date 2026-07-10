@@ -210,8 +210,7 @@ class TestModule:
         torch_end = time.time()
 
         jax_start = time.time()
-        with jax.default_matmul_precision("float32"):
-            jax_output = self.j_m(*from_torch(args), **from_torch(kwargs))
+        jax_output = self.j_m(*from_torch(args), **from_torch(kwargs))
         tree.map(lambda v: v.block_until_ready(), jax_output)
         jax_end = time.time()
 

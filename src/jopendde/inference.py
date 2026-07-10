@@ -15,11 +15,11 @@ methods), so importing this module stays torch-free.
     from jopendde.inference import Predictor, predict, summarize, spec_from_sequences
 
     p = Predictor.from_checkpoint()                          # torch: build + convert
-    inp = p.featurize(spec_from_sequences(["MQIF..."], name="ubq", seed=42))
+    inp = p.featurize(spec_from_sequences(["MQIF..."], name="ubq", seed=0))
     # from here, torch-free -- needs only (model, Features, SummaryParams):
-    pred = predict(p.model, inp.feat, jax.random.PRNGKey(42), n_cycle=10, n_sample=5, n_step=200)
+    pred = predict(p.model, inp.feat, jax.random.key(0), n_cycle=10, n_sample=5, n_step=200)
     summary = summarize(inp.feat, pred, p.summary_params, n_recycle=10)
-    p.save(inp, pred, summary, "out/", pdb_id="ubq", seed=42)
+    p.save(inp, pred, summary, "out/", pdb_id="ubq", seed=0)
 """
 
 from __future__ import annotations
@@ -98,29 +98,18 @@ def enable_cue_kernels(model):
 # ===========================================================================
 
 # model is an explicit arg (not captured as a large jit constant);
-# n_cycle/n_sample/n_step and matmul_precision are static (scan lengths /
-# lowering). The precision context lives INSIDE the jit so it's baked into the
-# lowering and keyed by the static arg -- setting it around the call instead
-# wouldn't work, since jit caches on shapes+statics, not the ambient context.
+# n_cycle/n_sample/n_step are static (scan lengths / lowering). Matmul precision
+# is left at the JAX/XLA default.
 @eqx.filter_jit
-def _run(model, feat, key, n_cycle, n_sample, n_step, matmul_precision):
-    with jax.default_matmul_precision(matmul_precision):
-        return model.predict(feat, key, n_cycle=n_cycle, n_sample=n_sample, n_step=n_step)
+def _run(model, feat, key, n_cycle, n_sample, n_step):
+    return model.predict(feat, key, n_cycle=n_cycle, n_sample=n_sample, n_step=n_step)
 
 
-def predict(model, feat: Features, key, *, n_cycle: int, n_sample: int, n_step: int,
-            matmul_precision: str = "tensorfloat32") -> Prediction:
+def predict(model, feat: Features, key, *, n_cycle: int, n_sample: int, n_step: int) -> Prediction:
     """Run inference. Torch-free: given a converted jopendde model and `Features`,
-    this needs no torch/opendde. `key` is a jax PRNGKey; `n_cycle`/`n_sample`/
-    `n_step` are the inference budget (all required).
-
-    `matmul_precision` sets how fp32-input matmuls accumulate: 'tensorfloat32'
-    (default) uses TF32 tensor cores -- much faster on the trunk, ~1e-3 matmul
-    error that's negligible for inference; 'float32' is exact. (Static jit arg,
-    so a distinct value recompiles.)"""
-    pred = _run(model, feat, key, n_cycle, n_sample, n_step, matmul_precision)
-    jax.block_until_ready(pred)
-    return pred
+    this needs no torch/opendde. `key` is a jax random key; `n_cycle`/`n_sample`/
+    `n_step` are the inference budget (all required)."""
+    return _run(model, feat, key, n_cycle, n_sample, n_step)
 
 
 def summarize(feat: Features, pred: Prediction, params: SummaryParams, *, n_recycle: int) -> list[dict]:
@@ -214,16 +203,18 @@ class Predictor:
 
     @classmethod
     def from_checkpoint(cls, model_name: str = "opendde_v1") -> "Predictor":
-        """Build the OpenDDE model + load the released checkpoint (fast-init),
-        convert to jopendde, and return a ready Predictor. The config is pinned
-        to the deterministic single-sequence path (fp32, torch triangle kernels,
-        no MSA/template, perf fusions off); these are fixed, not tunable.
-        Inference-budget knobs (n_cycle/n_sample/n_step) are NOT set here;
-        they're chosen per `predict()` call."""
+        """Download the released checkpoint (+ CCD data) from Hugging Face, build
+        the OpenDDE model + load it (fast-init), convert to jopendde, and return a
+        ready Predictor. The config is pinned to the deterministic single-sequence
+        path (torch triangle kernels, no MSA/template, perf fusions off);
+        these are fixed, not tunable. Inference-budget knobs
+        (n_cycle/n_sample/n_step) are NOT set here; they're chosen per `predict()`
+        call."""
         from opendde.config.inference import (
             build_inference_config,
             update_gpu_compatible_configs,
         )
+        from opendde.utils.download import download_inference_cache
         from runner.inference import InferenceRunner
 
         from jopendde import convert  # noqa: F401 -- registers from_torch converters
@@ -232,13 +223,15 @@ class Predictor:
 
         enable_compilation_cache()
         configs = build_inference_config(model_name=model_name, fill_required_with_null=True)
-        configs.dtype = "fp32"
         configs.use_msa = configs.use_template = configs.use_rna_msa = False
         configs.triangle_multiplicative = configs.triangle_attention = "torch"
         configs.enable_diffusion_shared_vars_cache = False
         configs.enable_efficient_fusion = False
-        configs.enable_tf32 = False
         configs = update_gpu_compatible_configs(configs)
+
+        # Fetch the torch checkpoint + CCD data from HF into the local cache
+        # (idempotent; InferenceRunner errors if they're absent).
+        download_inference_cache(configs)
 
         with fast_init():
             runner = InferenceRunner(configs)

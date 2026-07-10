@@ -22,15 +22,21 @@ torch is pulled as the CPU build (it only extracts weights); JAX owns the GPU. `
 
 ## Usage
 
+Runnable end-to-end example: [`examples/predict.py`](examples/predict.py).
+
+```bash
+uv run --group jax-cuda --group reference python examples/predict.py --seed 0
+```
+
 ```python
 import jax
 from jopendde.inference import Predictor, predict, summarize, spec_from_sequences
 
 p = Predictor.from_checkpoint()                          # torch: build + convert
-inp = p.featurize(spec_from_sequences(["MQIF..."], name="ubq", seed=42))
+inp = p.featurize(spec_from_sequences(["MQIF..."], name="ubq", seed=0))
 
 # from here, torch-free — needs only (model, Features, SummaryParams):
-pred = predict(p.model, inp.feat, jax.random.PRNGKey(42), n_cycle=10, n_sample=5, n_step=200)
+pred = predict(p.model, inp.feat, jax.random.key(0), n_cycle=10, n_sample=5, n_step=200)
 summary = summarize(inp.feat, pred, p.summary_params, n_recycle=10)
-p.save(inp, pred, summary, "out/", pdb_id="ubq", seed=42)
+p.save(inp, pred, summary, "out/", pdb_id="ubq", seed=0)
 ```
