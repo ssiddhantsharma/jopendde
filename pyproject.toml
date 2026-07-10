@@ -28,17 +28,31 @@ jax-cpu = [
 jax-cuda = [
   "jax[cuda12]",
 ]
-# The PyTorch OpenDDE reference. jopendde has no featurizer of its own and the
-# weights ship as a torch checkpoint, so converting a model / featurizing inputs
-# (Predictor.from_checkpoint, Predictor.featurize) need `opendde` + torch
-# importable. Editable path dep -> jopendde depends on OpenDDE (the correct
-# direction), not the reverse. Clone OpenDDE into ./OpenDDE (see README).
+# The PyTorch OpenDDE reference, vendored under ./OpenDDE. jopendde has no
+# featurizer of its own and the weights ship as a torch checkpoint, so
+# converting a model / featurizing inputs (Predictor.from_checkpoint,
+# Predictor.featurize) need `opendde` + torch. torch/torchvision/torchaudio are
+# listed here (matching opendde's own pins) so the CPU-index source below
+# applies to them.
 reference = [
   "opendde",
+  "torch",
+  "torchvision",
+  "torchaudio",
 ]
 
 [tool.uv.sources]
 opendde = { path = "OpenDDE", editable = true }
+# torch is only used on CPU (weight extraction); pull the CPU build so it
+# doesn't drag in ~5 GB of bundled CUDA wheels. JAX owns the GPU.
+torch = { index = "pytorch-cpu" }
+torchvision = { index = "pytorch-cpu" }
+torchaudio = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
 [tool.uv]
 package = true
@@ -48,11 +62,6 @@ conflicts = [
       { group = "jax-cuda" },
     ],
 ]
-# torch 2.7.1+cu126 pins nvidia-cudnn-cu12==9.5.1.17, but jax[cuda12] needs
-# >=9.8. torch runs CPU-only here (weights are extracted on CPU and never load
-# cuDNN at runtime), so override up to a JAX-compatible cuDNN and the GPU backend
-# compiles.
-override-dependencies = ["nvidia-cudnn-cu12>=9.8,<10"]
 
 [build-system]
 requires = ["hatchling"]

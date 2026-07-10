@@ -12,12 +12,13 @@ uv sync --group jax-cuda    # or: --group jax-cpu
 
 Add `--extra cue` for the fused NVIDIA cuEquivariance triangle kernels (CUDA 12).
 
-Weight conversion and featurization need the PyTorch OpenDDE reference. Clone it into `./OpenDDE`, then install the `reference` group:
+Weight conversion and featurization additionally need the PyTorch OpenDDE reference, vendored under `./OpenDDE`. Install the `reference` group:
 
 ```bash
-git clone https://github.com/aurekaresearch/OpenDDE
 uv sync --group jax-cuda --group reference
 ```
+
+torch is pulled as the CPU build (it only extracts weights); JAX owns the GPU. `Predictor.from_checkpoint()` downloads the `opendde_v1` weights on first use.
 
 ## Usage
 

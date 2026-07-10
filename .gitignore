@@ -9,6 +9,15 @@
 !/NOTICE
 !/.gitignore
 
+# Vendored OpenDDE: track only its code, not weights/venv/examples/docs/assets
+!/OpenDDE/
+/OpenDDE/*
+!/OpenDDE/opendde/
+!/OpenDDE/runner/
+!/OpenDDE/pyproject.toml
+!/OpenDDE/LICENSE
+!/OpenDDE/README.md
+
 # Python caches within tracked directories
 __pycache__/
 *.py[cod]

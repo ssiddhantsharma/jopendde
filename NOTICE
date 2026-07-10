@@ -8,5 +8,12 @@ jopendde is a JAX/Equinox translation of OpenDDE
 Apache License, Version 2.0. Portions of this software are derived from the
 OpenDDE model architecture.
 
+The ./OpenDDE directory is a vendored copy of OpenDDE @ 266ce4c (Copyright
+Aureka AI Research, Apache-2.0; its LICENSE is retained at OpenDDE/LICENSE).
+Only the `opendde/` and `runner/` packages are included, needed for weight
+conversion and featurization. The vendored `OpenDDE/pyproject.toml` is modified
+from upstream: requires-python raised to >=3.12 and the `cuequivariance-torch`
+GPU-kernel dependencies removed (jopendde uses only the plain-torch path).
+
 The module-by-module translation approach follows joltz
 (https://github.com/nboyd/joltz).
