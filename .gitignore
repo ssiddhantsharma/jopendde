@@ -1,0 +1,14 @@
+# Ignore everything by default; only the files below are tracked.
+/*
+
+!/src/
+!/pyproject.toml
+!/uv.lock
+!/README.md
+!/LICENSE
+!/NOTICE
+!/.gitignore
+
+# Python caches within tracked directories
+__pycache__/
+*.py[cod]

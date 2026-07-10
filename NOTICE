@@ -1,0 +1,12 @@
+jopendde
+Copyright 2026 Escalante Bio
+
+This product includes software developed at Escalante Bio.
+
+jopendde is a JAX/Equinox translation of OpenDDE
+(https://github.com/aurekaresearch/OpenDDE), which is licensed under the
+Apache License, Version 2.0. Portions of this software are derived from the
+OpenDDE model architecture.
+
+The module-by-module translation approach follows joltz
+(https://github.com/nboyd/joltz).

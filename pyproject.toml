@@ -1,0 +1,62 @@
+[project]
+name = "jopendde"
+version = "0.1.0"
+description = "JAX/Equinox translation of OpenDDE"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "dm-tree>=0.1.10",
+    "einops>=0.8.0",
+    "equinox>=0.11.10",
+    "jaxtyping>=0.2.36",
+    "numpy>=1.26.3",
+]
+
+[project.optional-dependencies]
+# Fused NVIDIA cuEquivariance triangle kernels (CUDA 12). Optional: enables the
+# triangle-attention kernel via inference.enable_cue_kernels() (a trunk speedup
+# that grows with token count). Not imported unless that helper is called.
+cue = [
+    "cuequivariance-jax>=0.10.0",
+    "cuequivariance-ops-jax-cu12>=0.10.0",
+]
+
+[dependency-groups]
+jax-cpu = [
+  "jax[cpu]",
+]
+jax-cuda = [
+  "jax[cuda12]",
+]
+# The PyTorch OpenDDE reference. jopendde has no featurizer of its own and the
+# weights ship as a torch checkpoint, so converting a model / featurizing inputs
+# (Predictor.from_checkpoint, Predictor.featurize) need `opendde` + torch
+# importable. Editable path dep -> jopendde depends on OpenDDE (the correct
+# direction), not the reverse. Clone OpenDDE into ./OpenDDE (see README).
+reference = [
+  "opendde",
+]
+
+[tool.uv.sources]
+opendde = { path = "OpenDDE", editable = true }
+
+[tool.uv]
+package = true
+conflicts = [
+    [
+      { group = "jax-cpu" },
+      { group = "jax-cuda" },
+    ],
+]
+# torch 2.7.1+cu126 pins nvidia-cudnn-cu12==9.5.1.17, but jax[cuda12] needs
+# >=9.8. torch runs CPU-only here (weights are extracted on CPU and never load
+# cuDNN at runtime), so override up to a JAX-compatible cuDNN and the GPU backend
+# compiles.
+override-dependencies = ["nvidia-cudnn-cu12>=9.8,<10"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/jopendde"]
