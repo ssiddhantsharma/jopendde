@@ -1,8 +1,6 @@
 # jopendde
 
-JAX/Equinox translation of [OpenDDE](https://github.com/aurekaresearch/OpenDDE), an all-atom biomolecular co-folding model. Follows the module-by-module translation approach used in [joltz](https://github.com/nboyd/joltz) (the equivalent translation of Boltz).
-
-`src/jopendde/` is torch-free except for `convert.py`, which converts weights from a PyTorch checkpoint. Inference (`predict`, `summarize`) runs on a converted model and `Features` with only jax/equinox/numpy.
+JAX/Equinox translation of [OpenDDE](https://github.com/aurekaresearch/OpenDDE), an all-atom biomolecular co-folding model. 
 
 ## Install
 
@@ -18,7 +16,7 @@ Weight conversion and featurization additionally need the PyTorch OpenDDE refere
 uv sync --group jax-cuda --group reference
 ```
 
-torch is pulled as the CPU build (it only extracts weights); JAX owns the GPU. `Predictor.from_checkpoint()` downloads the `opendde_v1` weights on first use.
+torch is pulled as the CPU build (it only extracts weights). `Predictor.from_checkpoint()` downloads the `opendde_v1` weights on first use.
 
 ## Usage
 
