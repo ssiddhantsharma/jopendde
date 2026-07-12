@@ -202,19 +202,28 @@ class Predictor:
         self.summary_params = summary_params
 
     @classmethod
-    def from_checkpoint(cls, model_name: str = "opendde_v1") -> "Predictor":
+    def from_checkpoint(
+        cls,
+        model_name: str = "opendde_v1",
+        checkpoint_file: str | None = None,
+    ) -> "Predictor":
         """Download the released checkpoint (+ CCD data) from Hugging Face, build
         the OpenDDE model + load it (fast-init), convert to jopendde, and return a
         ready Predictor. The config is pinned to the deterministic single-sequence
         path (torch triangle kernels, no MSA/template, perf fusions off);
         these are fixed, not tunable. Inference-budget knobs
         (n_cycle/n_sample/n_step) are NOT set here; they're chosen per `predict()`
-        call."""
+        call.
+
+        `checkpoint_file` overrides the weight file for `model_name` (e.g.
+        "opendde_abag.pt"), fetched from the same HF repo. The `model_name`
+        config must match the checkpoint's architecture."""
+        from opendde.config.dependency_url import dependency_url
         from opendde.config.inference import (
             build_inference_config,
             update_gpu_compatible_configs,
         )
-        from opendde.utils.download import download_inference_cache
+        from opendde.utils.download import download_from_url, download_inference_cache
         from runner.inference import InferenceRunner
 
         from jopendde import convert  # noqa: F401 -- registers from_torch converters
@@ -229,8 +238,16 @@ class Predictor:
         configs.enable_efficient_fusion = False
         configs = update_gpu_compatible_configs(configs)
 
+        # Point at a non-default weight file (e.g. the ABAG checkpoint).
+        if checkpoint_file is not None:
+            ckpt_path = os.path.join(configs.load_checkpoint_dir, checkpoint_file)
+            if not os.path.exists(ckpt_path):
+                os.makedirs(configs.load_checkpoint_dir, exist_ok=True)
+                download_from_url(dependency_url(checkpoint_file), ckpt_path)
+            configs.load_checkpoint_path = ckpt_path
+
         # Fetch the torch checkpoint + CCD data from HF into the local cache
-        # (idempotent; InferenceRunner errors if they're absent).
+        # (idempotent; skips the checkpoint when load_checkpoint_path already exists).
         download_inference_cache(configs)
 
         with fast_init():
