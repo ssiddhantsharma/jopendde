@@ -38,17 +38,6 @@ import numpy as np
 from jopendde.features import Features, Prediction, SummaryParams
 
 
-def enable_compilation_cache(path: str = "/jax_cache") -> None:
-    """Persistent XLA compile cache so re-runs skip the multi-minute JIT compile.
-    Call before the first jitted call (Predictor.from_checkpoint does)."""
-    jax.config.update("jax_compilation_cache_dir", path)
-    jax.config.update("jax_persistent_cache_min_entry_size_bytes", -1)
-    jax.config.update("jax_persistent_cache_min_compile_time_secs", 0)
-    jax.config.update(
-        "jax_persistent_cache_enable_xla_caches", "xla_gpu_per_fusion_autotune_cache_dir"
-    )
-
-
 def enable_cue_kernels(model):
     """Swap the trunk's triangle-*attention* modules to the fused NVIDIA
     cuEquivariance kernel (optional; requires `cuequivariance-jax` +
@@ -186,6 +175,16 @@ def _to_numpy(v):
     return v
 
 
+def _set_asset_cache_dir(configs, asset_cache_dir) -> None:
+    configs.load_checkpoint_dir = os.path.join(asset_cache_dir, "checkpoint")
+    configs.data.ccd_components_file = os.path.join(
+        asset_cache_dir, "common", "components.cif"
+    )
+    configs.data.ccd_components_rdkit_mol_file = os.path.join(
+        asset_cache_dir, "common", "components.cif.rdkit_mol.pkl"
+    )
+
+
 class Predictor:
     """A loaded OpenDDE checkpoint ready for JAX inference.
 
@@ -206,6 +205,7 @@ class Predictor:
         cls,
         model_name: str = "opendde_v1",
         checkpoint_file: str | None = None,
+        asset_cache_dir: str | os.PathLike | None = None,
     ) -> "Predictor":
         """Download the released checkpoint (+ CCD data) from Hugging Face, build
         the OpenDDE model + load it (fast-init), convert to jopendde, and return a
@@ -217,7 +217,8 @@ class Predictor:
 
         `checkpoint_file` overrides the weight file for `model_name` (e.g.
         "opendde_abag.pt"), fetched from the same HF repo. The `model_name`
-        config must match the checkpoint's architecture."""
+        config must match the checkpoint's architecture. `asset_cache_dir`
+        overrides the directory used for checkpoints and CCD data."""
         from opendde.config.dependency_url import dependency_url
         from opendde.config.inference import (
             build_inference_config,
@@ -230,8 +231,9 @@ class Predictor:
         from jopendde.fast_init import fast_init
         from jopendde.model import OpenDDE as JaxOpenDDE
 
-        enable_compilation_cache()
         configs = build_inference_config(model_name=model_name, fill_required_with_null=True)
+        if asset_cache_dir is not None:
+            _set_asset_cache_dir(configs, asset_cache_dir)
         configs.use_msa = configs.use_template = configs.use_rna_msa = False
         configs.triangle_multiplicative = configs.triangle_attention = "torch"
         configs.enable_diffusion_shared_vars_cache = False
