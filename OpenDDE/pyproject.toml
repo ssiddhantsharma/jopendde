@@ -46,7 +46,7 @@ dependencies = [
   "matplotlib==3.10.5",
   "ipywidgets==8.1.7",
   "py3Dmol==2.5.2",
-  "rdkit==2025.9.3",
+  "rdkit>=2025.9.3",
   "biopython>=1.84",
   "biotite==1.4.0",
   "modelcif>=1.2",
